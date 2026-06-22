@@ -2,12 +2,13 @@
 analytics, Track 1 geometry, and the two benchmark replays into a portable static
 tree the personal website can host under ``/ghostline/...``.
 
-GL-02 / GL-03. This reuses the already-generated outputs (the interactive replay
+GL-02 / GL-03 / GL-19. This reuses the already-generated outputs (the interactive replay
 viewer from :mod:`momentum_lab.rl.visualizer` and the static analytics report from
 :mod:`momentum_lab.rl.analytics`); it does not train, re-evaluate, or regenerate
 them. It copies them, audits the HTML for portability (no ``file://`` or absolute
 asset paths, and every referenced asset resolves), copies the canonical Track 1
-JSON and the two benchmark replay artifacts, and writes a small ``manifest.json``.
+JSON and the two benchmark replay artifacts, writes a small ``manifest.json``,
+and emits golden browser-sim fixtures from the canonical Python sim.
 
 Usage::
 
@@ -22,11 +23,17 @@ Output tree (relative to ``--out``)::
     data/ghostline_ai_3_965.json
     data/michi_dev_4_028.json
     data/manifest.json
+    fixtures/straight_accel.json
+    fixtures/brake_turn.json
+    fixtures/wall_collision.json
+    fixtures/boost_pad.json
+    fixtures/checkpoint_finish.json
+    fixtures/ai_record_replay.json
 
 The two benchmark rows (Ghostline AI run 970622 and Michi/dev run 750982) are
 fixed values matching the challenge plan; the export verifies the located replay
 artifacts still match them so a future data change is caught rather than silently
-exported.
+exported. The AI fixture is built from that same run 970622 replay artifact.
 """
 
 from __future__ import annotations
@@ -40,8 +47,12 @@ from pathlib import Path
 
 from . import PHYSICS_VERSION, TIMING_VERSION
 from .config import DEFAULT_TRACK
+from .portfolio_fixtures import (
+    PortfolioFixtureError,
+    write_fixtures as write_portfolio_fixtures,
+)
 from .rl.analytics import AnalyzedRun, find_run_by_id, scan_runs
-from .rl.rollout import rl_runs_dir
+from .rl.rollout import load_rollout, rl_runs_dir
 from .tracks import tracks_dir
 
 TRACK_ID = DEFAULT_TRACK  # "track_01_easy_loop"
@@ -195,19 +206,24 @@ def _copy_track(out: Path) -> list[Path]:
 def _copy_benchmarks(records: list[AnalyzedRun], out: Path) -> list[Path]:
     written: list[Path] = []
     for bench in BENCHMARKS:
-        try:
-            run = find_run_by_id(records, bench.run_id)
-        except ValueError as e:
-            raise PortfolioExportError(
-                f"benchmark {bench.id!r} (run {bench.run_id}) not found in {rl_runs_dir()}: {e}"
-            ) from e
-        _verify_benchmark(bench, run)
+        run = _benchmark_run(records, bench)
         if run.artifact_path is None:
             raise PortfolioExportError(
                 f"benchmark {bench.id!r} (run {bench.run_id}) has no replay artifact on disk"
             )
         written.append(_copy(run.artifact_path, out / "data" / bench.data_filename))
     return written
+
+
+def _benchmark_run(records: list[AnalyzedRun], bench: Benchmark) -> AnalyzedRun:
+    try:
+        run = find_run_by_id(records, bench.run_id)
+    except ValueError as e:
+        raise PortfolioExportError(
+            f"benchmark {bench.id!r} (run {bench.run_id}) not found in {rl_runs_dir()}: {e}"
+        ) from e
+    _verify_benchmark(bench, run)
+    return run
 
 
 def _verify_benchmark(bench: Benchmark, run: AnalyzedRun) -> None:
@@ -243,6 +259,22 @@ def _write_manifest(out: Path) -> list[Path]:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return [path]
+
+
+def _write_fixtures(records: list[AnalyzedRun], out: Path) -> list[Path]:
+    ai_benchmark = next(bench for bench in BENCHMARKS if bench.id == "ghostline_ai")
+    run = _benchmark_run(records, ai_benchmark)
+    if run.artifact_path is None:
+        raise PortfolioExportError(
+            f"benchmark {ai_benchmark.id!r} (run {ai_benchmark.run_id}) has no replay artifact on disk"
+        )
+    try:
+        artifact = load_rollout(run.artifact_path)
+        return list(write_portfolio_fixtures(out / "fixtures", artifact.replay))
+    except (OSError, ValueError, PortfolioFixtureError) as e:
+        raise PortfolioExportError(
+            f"could not generate GL-19 fixtures from run {ai_benchmark.run_id}: {e}"
+        ) from e
 
 
 # --------------------------------------------------------------------------- #
@@ -301,6 +333,7 @@ def export(out_dir: str | Path, *, root: str | Path | None = None, clean: bool =
     written += _copy_track(out)
     written += _copy_benchmarks(records, out)
     written += _write_manifest(out)
+    written += _write_fixtures(records, out)
 
     _audit_portable(out / "replay_viewer" / "index.html")
     _audit_portable(out / "analysis" / "index.html")
@@ -310,7 +343,7 @@ def export(out_dir: str | Path, *, root: str | Path | None = None, clean: bool =
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Export the portable Ghostline portfolio asset tree (GL-02/GL-03)."
+        description="Export the portable Ghostline portfolio asset tree (GL-02/GL-03/GL-19)."
     )
     parser.add_argument("--out", type=Path, required=True, help="Output directory for the export tree.")
     parser.add_argument(

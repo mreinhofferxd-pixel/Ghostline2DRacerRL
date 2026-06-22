@@ -63,7 +63,7 @@ Implemented:
   that materializes a missing rollout from a saved model (env config rebuilt from
   the manifest, or the policy's action space when absent). Both reuse the existing
   rollout/eval/selection code; re-eval is gated on stable-baselines3.
-- Portfolio export (`momentum_lab/portfolio_export.py`, GL-02/GL-03): a read-only
+- Portfolio export (`momentum_lab/portfolio_export.py`, GL-02/GL-03/GL-19): a read-only
   `python -m momentum_lab.portfolio_export --out <dir>` CLI that bundles the reused
   replay viewer and static analytics, the canonical Track 1 JSON, and the two
   benchmark replay artifacts (run `970622` Ghostline AI, run `750982` Michi/dev)
@@ -73,6 +73,9 @@ Implemented:
   rows), locates the benchmark runs by stable id via `analytics.scan_runs` and
   verifies their lap time / walls still match, then audits the HTML for
   `file://`/absolute/dead asset references so it serves cleanly off a static server.
+  GL-19 also emits `fixtures/*.json` golden browser-sim fixtures from the Python sim,
+  with `ai_record_replay` sourced from run `970622` and locked to 3.965 s / 239 ticks
+  / 0 wall hits.
 
 Current best known RL result:
 

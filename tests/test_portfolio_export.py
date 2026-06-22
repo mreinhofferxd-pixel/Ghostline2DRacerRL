@@ -58,6 +58,15 @@ def _stub_run_location(monkeypatch, tmp_path):
     runs = {b.run_id: _fake_run(tmp_path, b) for b in BENCHMARKS}
     monkeypatch.setattr(px, "scan_runs", lambda root: list(runs.values()))
     monkeypatch.setattr(px, "find_run_by_id", lambda records, rid: runs[rid])
+    monkeypatch.setattr(px, "load_rollout", lambda path: SimpleNamespace(replay=object()))
+
+    def fake_write_fixtures(out_dir, replay):
+        path = out_dir / "straight_accel.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"name": "straight_accel"}), encoding="utf-8")
+        return (path,)
+
+    monkeypatch.setattr(px, "write_portfolio_fixtures", fake_write_fixtures)
     return runs
 
 
@@ -75,6 +84,7 @@ def test_export_produces_full_tree(tmp_path, monkeypatch):
     assert "analysis/run_001_idX.svg" in names
     assert f"data/{TRACK_ID}.json" in names
     assert "data/manifest.json" in names
+    assert "fixtures/straight_accel.json" in names
     for bench in BENCHMARKS:
         assert f"data/{bench.data_filename}" in names
     # Every listed file exists on disk.
