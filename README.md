@@ -1,14 +1,8 @@
 # Momentum Lab - Ghostline
 
-A 2D top-down time-trial racer built on a **deterministic fixed-timestep
-simulation core**, designed to later become a reinforcement-learning environment.
-Use [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) for the compact current
-architecture/status snapshot and [BACKLOG.md](BACKLOG.md) for the active task
-queue.
+A deterministic, fixed-timestep 2D top-down time-trial racer in Python that also serves as a reinforcement-learning environment. A trained PPO agent laps the reference track in 3.965 seconds. See [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) for the architecture snapshot.
 
-## Status
-
-In place:
+## What is built
 
 - Fixed-timestep sim (120 Hz physics / 60 Hz control) decoupled from render, with
   interpolation.
@@ -30,9 +24,6 @@ In place:
 - One current generated track: Easy Loop (`track_01_easy_loop`).
 - Gymnasium-style RL wrapper, rollout artifacts, PPO training/eval, analytics,
   static SVG reports, and trace comparison.
-
-Not yet: menus/audio/controller polish, multi-track RL, and the interactive RL
-replay/story viewer.
 
 ## Setup
 
