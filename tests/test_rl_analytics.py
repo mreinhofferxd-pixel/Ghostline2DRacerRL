@@ -211,6 +211,42 @@ def test_identical_rollouts_collapse_to_one_run_with_stable_id(tmp_path):
     assert runs[0].run_id in report
 
 
+def test_scan_runs_uses_explicit_public_run_id_when_present(tmp_path):
+    output_dir = tmp_path / "evals" / "der_goat"
+    summary_path = tmp_path / "evals" / "der_goat.jsonl"
+    artifact = _artifact(
+        seed=0,
+        checkpoint_index=4,
+        total_reward=0.0,
+        frames=(
+            Frame(0.0, 200.0, 560.0, 0.0, 120.0, False, 0, False, False),
+            Frame(0.1, 360.0, 600.0, 0.1, 130.0, False, 4, False, False),
+        ),
+        valid=True,
+        lap_time=3.959,
+    )
+    artifact_path = save_rollout(
+        artifact,
+        output_dir / "track_01_easy_loop_human_keyboard_ep0000_seed_0_000239.json",
+    )
+    append_rollout_summary(
+        artifact.summary,
+        summary_path,
+        artifact_path=artifact_path,
+        policy="human_keyboard",
+        episode=0,
+        model="DER GOAT",
+        extra={"run_id": "23"},
+    )
+
+    records = scan_runs(tmp_path)
+    run = find_run_by_id(records, "23")
+
+    assert run.model == "DER GOAT"
+    assert run.policy == "human_keyboard"
+    assert run.lap_time == 3.959
+
+
 def test_equal_lap_and_reward_outcomes_collapse_but_reward_differences_stay(tmp_path):
     """Portfolio leaderboard rows collapse only when time and reward both match."""
     output_dir = tmp_path / "evals" / "model_outcome"

@@ -1,6 +1,6 @@
 # Momentum Lab - Ghostline
 
-A deterministic, fixed-timestep 2D top-down time-trial racer in Python that also serves as a reinforcement-learning environment. A trained PPO agent laps the reference track in 3.965 seconds. See [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) for the architecture snapshot.
+A deterministic, fixed-timestep 2D top-down time-trial racer in Python that also serves as a reinforcement-learning environment. A trained PPO agent laps the reference track in 3.948 seconds. See [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) for the architecture snapshot.
 
 ## What is built
 

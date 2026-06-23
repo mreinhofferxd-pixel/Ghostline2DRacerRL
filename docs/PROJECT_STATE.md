@@ -53,9 +53,8 @@ Implemented:
   read-only `python -m momentum_lab.rl.visualizer` CLI that selects saved runs
   (top-N, run id, model/reward/policy/status, or a curated `--story progression`) and
   writes a single self-contained `runs/rl/analysis/replay_viewer/index.html` with
-  overlay/scrub playback, layer toggles, a throttle/brake/steer/drift decision
-  timeline, and sector-vs-reference deltas. Built on the same `analytics.scan_runs`
-  artifacts; does not replace the static ranked report.
+  overlay/scrub playback, layer toggles, and story stepping. Built on the same
+  `analytics.scan_runs` artifacts; does not replace the static ranked report.
 - Viewer coverage extensions (B7.6b): an opt-in training-trace recorder
   (`--save-trace-checkpoints` / `--trace-eval-freq`, off by default) that saves
   per-step deterministic-eval rollout artifacts (`policy=ppo_trace`) for an
@@ -66,7 +65,7 @@ Implemented:
 - Portfolio export (`momentum_lab/portfolio_export.py`, GL-02/GL-03/GL-19): a read-only
   `python -m momentum_lab.portfolio_export --out <dir>` CLI that bundles the reused
   replay viewer and static analytics, the canonical Track 1 JSON, and the two
-  benchmark replay artifacts (run `970622` Ghostline AI, run `750982` Michi/dev)
+  benchmark replay artifacts (run `881229` Ghostline AI, DB run `23` Michi/dev)
   into a portable `replay_viewer/ analysis/ data/` tree the website hosts under
   `/ghostline/...`. It copies the existing HTML (does not regenerate it), writes
   `data/manifest.json` (track/physics/timing versions plus the two locked benchmark
@@ -74,19 +73,30 @@ Implemented:
   verifies their lap time / walls still match, then audits the HTML for
   `file://`/absolute/dead asset references so it serves cleanly off a static server.
   GL-19 also emits `fixtures/*.json` golden browser-sim fixtures from the Python sim,
-  with `ai_record_replay` sourced from run `970622` and locked to 3.965 s / 239 ticks
+  with `ai_record_replay` sourced from run `881229` and locked to 3.948 s / 238 ticks
   / 0 wall hits.
 
 Current best known RL result:
 
+- Model: `b11_2_ppo_seed129_finetune_timeattack_v6_lookahead_wallsensors_g997_200k_keepbest.best`
+- Run id: `881229`.
+- Track 1 valid lap: **3.948 s** sub-tick (238 control ticks), zero wall hits,
+  reward 1289.61. This was the B11 fan-out from the `b10_28` champion. Most B11
+  seeds repeated the 239-tick line, but seed 129 found the 238-tick best.
+- Current human reference in analytics and the portfolio export: DER GOAT, DB run
+  id `23`, **3.959 s** displayed, 0 wall hits. Its replay was trimmed by two
+  pre-start idle ticks so the ghost starts on the lap clock.
+- The time-attack study is closed at 238 ticks / 3.948 s. The useful remaining work
+  is presentation: portfolio story, replay viewer, and deduped leaderboard.
+
+Previous RL milestone:
+
 - Model: `b10_28_ppo_seed127_finetune_timeattack_v6_lookahead_wallsensors_g997_200k_keepbest`
+- Run id: `970622`.
 - Track 1 valid lap: **3.965 s** sub-tick (239 control ticks), zero wall hits,
   reward 1281.34. The wall-sensor branch sat at `3.9719111127294244` / 240 ticks
-  from `b10_18` through `b10_27`, then `b10_28` cracked one final tick and the chain
-  completed.
-- The wall-sensor run closes the time-attack study from the RL side. The useful
-  remaining work is presentation: portfolio story, replay viewer, and deduped
-  leaderboard.
+  from `b10_18` through `b10_27`, then `b10_28` cracked one final tick and set up
+  the final B11 fan-out.
 
 Previous milestone:
 
@@ -121,17 +131,17 @@ Previous milestone:
   speed has been the persistent residual across every version (b7_27 543, b8_32 523,
   b8_37 548). The over-drift symptom seen mid-chain resolved on its own (b8_37 drifts
   0.283 s, less than the human's 0.367), so the residual is pure apex speed.
-- Human reference in saved analytics: run id `750982`, 4.028 s sub-tick (242 ticks;
-  finish crossed at fraction 0.699 of the closing step).
+- Historical human reference in saved analytics: run id `750982`, 4.028 s sub-tick
+  (242 ticks; finish crossed at fraction 0.699 of the closing step). This is kept as
+  history, but the current comparison reference is DER GOAT DB run `23` at 3.959 s.
 - All saved analytics/replays were re-timed to sub-tick (B9 migration,
   `python -m momentum_lab.rl.retime`); records carry `timing_v2`.
 
-Time-attack experiment status: closed from the RL side at 239 ticks / 3.965 s. The
-strict human beat that was open at b8 (<=241 ticks) was reached by adding wall
-sensors to the lookahead/gamma-0.997 curriculum; after a long 240-tick plateau,
-`b10_28` found the final 239-tick lap and the chain completed. Next work is
-presentation and storytelling, not more time-attack training. See the 2026-06-21
-entries in `docs/RL_EXPERIMENT_LOG.md`.
+Time-attack experiment status: closed from the RL side at 238 ticks / 3.948 s. The
+strict human beat that was open at b8 (<=241 ticks) was first reached by adding wall
+sensors to the lookahead/gamma-0.997 curriculum, then B11 fan-out found the final
+238-tick lap. Next work is presentation and storytelling, not more time-attack
+training. See the 2026-06-21 and 2026-06-23 entries in `docs/RL_EXPERIMENT_LOG.md`.
 
 Not implemented:
 

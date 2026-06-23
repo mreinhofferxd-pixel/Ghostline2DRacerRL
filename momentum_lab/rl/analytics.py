@@ -776,7 +776,7 @@ def _analyze_artifact(
         reward_components=reward_components,
         artifact=artifact,
     )
-    return _with_run_id(run)
+    return _with_run_id(run, explicit=_optional_str(row.get("run_id")))
 
 
 def _analyze_summary_row(
@@ -837,7 +837,7 @@ def _analyze_summary_row(
         status=status,
         artifact=None,
     )
-    return _with_run_id(run)
+    return _with_run_id(run, explicit=_optional_str(row.get("run_id")))
 
 
 def _trace_run_stats(run: AnalyzedRun, *, visual_dir: Path | None) -> TraceRunStats:
@@ -1147,8 +1147,14 @@ def _run_id(run: AnalyzedRun) -> str:
     return f"{int(digest, 16) % 1_000_000:06d}"
 
 
-def _with_run_id(run: AnalyzedRun) -> AnalyzedRun:
-    return replace(run, run_id=_run_id(run))
+def _with_run_id(run: AnalyzedRun, *, explicit: str | None = None) -> AnalyzedRun:
+    """Attach the public run id when a source system provides one.
+
+    Normal RL evals keep their 6-digit behavioral id. Imported public laps, such
+    as a database-backed human best, can carry their source id in the summary row
+    so downstream reports and exports quote the same id users see in the app.
+    """
+    return replace(run, run_id=explicit or _run_id(run))
 
 
 def _dedupe_key(run: AnalyzedRun) -> tuple[str, ...]:
@@ -1168,7 +1174,7 @@ def _dedupe_runs(runs: Iterable[AnalyzedRun]) -> list[AnalyzedRun]:
     """Collapse behaviorally-identical rollouts, keeping one representative.
 
     Keyed on the content ``run_id`` (not the file path), so the old per-episode
-    triplicates — different files, identical trajectories — become a single row.
+    triplicates, different files with identical trajectories, become a single row.
     The representative carries ``duplicate_count`` = how many collapsed.
     """
     by_key: dict[tuple[str, ...], AnalyzedRun] = {}

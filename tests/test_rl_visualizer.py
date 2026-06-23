@@ -141,7 +141,7 @@ def _stall_frames() -> tuple[Frame, ...]:
     )
 
 
-def _write(tmp_path, *, name, model, policy, artifact, seed):
+def _write(tmp_path, *, name, model, policy, artifact, seed, extra=None):
     art_path = save_rollout(
         artifact,
         tmp_path / "evals" / model / f"{TRACK_ID}_{policy}_{name}_seed_{seed}.json",
@@ -153,6 +153,7 @@ def _write(tmp_path, *, name, model, policy, artifact, seed):
         policy=policy,
         episode=0,
         model=model,
+        extra=extra,
     )
 
 
@@ -234,6 +235,65 @@ def test_progression_story_is_ordered_and_captioned(tmp_path):
         (r for r in records if r.valid and r.model != "Michi"), key=lambda r: r.lap_time
     )
     assert best_step.run_id == best_model.run_id
+
+
+def test_progression_story_includes_final_stretch_to_best_model(tmp_path):
+    for seed, model, lap_time in (
+        (10, "b7_8_ppo_seed0_first_finish", 6.0),
+        (11, "b7_11_ppo_seed7_finetune_timeattack_v3_150k", 5.1),
+        (12, "b7_15_ppo_seed14_finetune_timeattack_v4_150k_keepbest", 4.5),
+        (13, "b7_27_ppo_seed26_finetune_timeattack_v5_150k_keepbest.best", 4.1),
+        (14, "b8_37_ppo_seed86_finetune_timeattack_v6_lookahead_g997_200k_keepbest.best", 4.019),
+        (
+            15,
+            "b10_28_ppo_seed127_finetune_timeattack_v6_lookahead_wallsensors_g997_200k_keepbest.best",
+            3.965,
+        ),
+        (
+            16,
+            "b11_2_ppo_seed129_finetune_timeattack_v6_lookahead_wallsensors_g997_200k_keepbest.best",
+            3.948,
+        ),
+    ):
+        _write(
+            tmp_path,
+            name=f"model_{seed}",
+            model=model,
+            policy="ppo_eval",
+            seed=seed,
+            artifact=_artifact(
+                seed=seed,
+                frames=_lap_frames(),
+                valid=True,
+                lap_time=lap_time,
+                checkpoint_index=4,
+            ),
+        )
+    _write(
+        tmp_path,
+        name="der_goat",
+        model="DER GOAT",
+        policy="human_keyboard",
+        seed=23,
+        artifact=_artifact(
+            seed=23,
+            frames=_lap_frames(),
+            valid=True,
+            lap_time=3.959,
+            checkpoint_index=4,
+        ),
+        extra={"run_id": "23"},
+    )
+
+    story = build_progression_story(scan_runs(tmp_path))
+    captions = [step.caption for step in story.steps]
+    joined = "\n".join(captions)
+
+    assert "Final stretch phase" in joined
+    assert "3.965s" in joined
+    assert "DER GOAT current best at 3.959s" in joined
+    assert "Current best, final stretch" in captions[-1]
+    assert "3.948s" in captions[-1]
 
 
 def test_progression_story_breaks_lap_ties_toward_clean_lap(tmp_path):
@@ -335,9 +395,18 @@ def test_write_replay_viewer_is_self_contained(tmp_path):
     assert 'id="ghostline-data"' in html
     assert "fetch(" not in html
     assert "data.json" not in html
-    # Interactive controls and the decision telemetry are present.
-    for marker in ('id="scrub"', 'id="align"', 'id="play"', "Decision timeline", "Live readout"):
+    # Interactive controls are present; dev-facing telemetry panels stay out of the public viewer.
+    for marker in ('id="scrub"', 'id="align"', 'id="play"'):
         assert marker in html
+    for marker in (
+        "Live readout",
+        "Sectors vs reference",
+        "Decision timeline",
+        'id="readout"',
+        'id="sectors"',
+        'id="timelines"',
+    ):
+        assert marker not in html
     # The selected runs and the story show up.
     for run in vm["runs"]:
         assert run["run_id"] in html

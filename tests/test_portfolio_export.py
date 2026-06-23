@@ -78,6 +78,7 @@ def test_export_produces_full_tree(tmp_path, monkeypatch):
     result = export(out, root=root)
 
     names = {str(p.relative_to(out)).replace("\\", "/") for p in result.files}
+    assert "README.md" in names
     assert "replay_viewer/index.html" in names
     assert "analysis/index.html" in names
     assert "analysis/top_runs.svg" in names
@@ -106,7 +107,7 @@ def test_manifest_matches_plan_shape(tmp_path, monkeypatch):
 
     expected = [
         ("ghostline_ai", "Ghostline AI", "881229", 3.948, 238, 0),
-        ("michi_dev", "Michi/dev", "750982", 4.028, 242, 0),
+        ("michi_dev", "Michi/dev", "23", 3.959, 238, 0),
     ]
     assert len(manifest["benchmarks"]) == len(expected)
     for row, (bid, label, run_id, lap_time, lap_ticks, walls) in zip(manifest["benchmarks"], expected):

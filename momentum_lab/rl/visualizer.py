@@ -111,16 +111,16 @@ def build_progression_story(records: Iterable[AnalyzedRun]) -> StoryPreset:
 
     if valid:
         first_lap = valid[-1]  # slowest valid lap = the first competent finish
-        add(first_lap, f"First clean lap — {first_lap.lap_time:.3f}s.")
+        add(first_lap, f"First clean lap: {first_lap.lap_time:.3f}s.")
         if len(valid) >= 3:
             mid = valid[len(valid) // 2]
-            add(mid, f"Time-attack fine-tuning — {mid.lap_time:.3f}s.")
+            add(mid, f"Time-attack fine-tuning: {mid.lap_time:.3f}s.")
         best = valid[0]
-        add(best, f"Current best — {best.lap_time:.3f}s, {best.wall_hits} wall hits.")
+        add(best, f"Current best: {best.lap_time:.3f}s, {best.wall_hits} wall hits.")
 
     if human is not None:
         cap = (
-            f"Human reference — {human.lap_time:.3f}s."
+            f"Human reference: {human.lap_time:.3f}s."
             if human.valid
             else "Human reference line."
         )
@@ -138,7 +138,7 @@ def build_progression_story(records: Iterable[AnalyzedRun]) -> StoryPreset:
 
     The milestones are rule-based rather than hand-picked ids: early failure, first
     finish, reward/selection improvements, observation and gamma pivots, the human
-    benchmark, and the current best.
+    benchmark, the last 3.965s plateau, and the current best.
     """
     visual = [r for r in dedupe_runs(records) if _has_frames(r)]
     human = next((r for r in visual if _is_human(r)), None)
@@ -210,10 +210,18 @@ def build_progression_story(records: Iterable[AnalyzedRun]) -> StoryPreset:
             ),
             "Gamma 0.997: longer credit assignment breaks the old 246-tick ceiling.",
         )
+        add(
+            _best_matching(
+                valid,
+                lambda r: "wallsensors_g997" in r.model and r.lap_time <= 3.97,
+                exclude=used | _best_id(best),
+            ),
+            "Final stretch phase: wall sensors reach 3.965s and set up the last chase.",
+        )
 
     if human is not None:
         caption = (
-            f"Human reference: {human.lap_time:.3f}s, the line the policy had to catch."
+            _human_caption(human)
             if human.valid
             else "Human reference line."
         )
@@ -241,10 +249,22 @@ def _best_id(run: AnalyzedRun | None) -> set[str]:
 def _best_caption(run: AnalyzedRun) -> str:
     if "wallsensors" in run.model:
         return (
-            f"Current best: wall-sensor policy, {run.lap_time:.3f}s, "
+            f"Current best, final stretch: wall-sensor policy reaches "
+            f"{run.lap_time:.3f}s in {run.episode_steps} ticks with "
             f"{run.wall_hits} wall hits."
         )
-    return f"Current best: {run.lap_time:.3f}s, {run.wall_hits} wall hits."
+    return (
+        f"Current best, final stretch: {run.lap_time:.3f}s in "
+        f"{run.episode_steps} ticks with {run.wall_hits} wall hits."
+    )
+
+
+def _human_caption(run: AnalyzedRun) -> str:
+    label = "DER GOAT" if run.model == "DER GOAT" else "Michi"
+    return (
+        f"Michi reference: {label} current best at {run.lap_time:.3f}s. "
+        "The AI is chasing this line."
+    )
 
 
 def _slowest_below(
@@ -808,16 +828,6 @@ input[type=range] { flex: 1; }
 .runrow .meta { color: #8a93a1; flex: 0 0 auto; }
 .badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; background: #233; color: #9fe; }
 .badge.ref { background: #443; color: #fe9; }
-section#telemetry { padding: 0 18px 24px; }
-.tgrid { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
-.tcol { flex: 1 1 420px; min-width: 320px; }
-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-th, td { border-bottom: 1px solid #262d37; padding: 4px 7px; text-align: right; white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; }
-th { color: #8a93a1; font-weight: normal; }
-canvas.timeline { width: 100%; height: auto; background: #14171c; border: 1px solid #2a313b; border-radius: 5px; }
-.legend { font-size: 11px; color: #8a93a1; margin: 6px 0 2px; }
-.pos { color: #76b041; } .neg { color: #ff6b6b; }
 .hint { font-size: 12px; color: #6f7886; }
 </style>
 </head>
@@ -881,20 +891,6 @@ canvas.timeline { width: 100%; height: auto; background: #14171c; border: 1px so
     </div>
   </div>
 </main>
-<section id="telemetry">
-  <div class="tgrid">
-    <div class="tcol">
-      <h2 class="legend">Live readout</h2>
-      <table id="readout"><thead></thead><tbody></tbody></table>
-      <h2 class="legend" style="margin-top:14px">Sectors vs reference (split seconds, &#916; = run - reference)</h2>
-      <table id="sectors"><thead></thead><tbody></tbody></table>
-    </div>
-    <div class="tcol">
-      <h2 class="legend">Decision timeline &#8212; focused run (solid) vs reference (faint)</h2>
-      <div id="timelines"></div>
-    </div>
-  </div>
-</section>
 <script>
 "use strict";
 const DATA = JSON.parse(document.getElementById("ghostline-data").textContent);
@@ -1103,8 +1099,6 @@ function render() {
     drawCar(run, p, run.run_id === state.focus);
   });
   document.getElementById("clock").textContent = clockLabel(axis);
-  updateReadout();
-  drawTimelines();
 }
 function clockLabel(axis) {
   if (state.align === "finish") return (axis * 100).toFixed(0) + "%";
@@ -1143,115 +1137,9 @@ runlist.addEventListener("click", e => {
   if (act === "vis") { state.runUI[id].visible = e.target.checked; render(); }
   else if (act === "focus" || e.target.classList.contains("name")) {
     state.focus = id; state.axis = 0;  // switching replay restarts the clock
-    buildRunList(); buildTimelines(); syncScrub(); render();
+    buildRunList(); syncScrub(); render();
   }
 });
-
-// ---- telemetry: live readout + sectors ------------------------------------
-const readout = document.getElementById("readout");
-function updateReadout() {
-  const head = "<tr><th>run</th><th>t</th><th>speed</th><th>cp</th><th>lap</th><th>reward</th><th>path</th><th>walls</th></tr>";
-  readout.querySelector("thead").innerHTML = head;
-  let body = "";
-  RUNS.forEach(run => {
-    if (!state.runUI[run.run_id].visible) return;
-    const p = pose(run, frameAt(run, state.axis));
-    const t = p ? p.t.toFixed(2) : "-";
-    const sp = p ? p.speed.toFixed(0) : "-";
-    const cp = p ? (p.cp + "/" + run.checkpoint_count) : "-";
-    const lap = run.valid ? run.lap_time.toFixed(3) + "s" : "&#8211;";
-    body += "<tr>" +
-      '<td><span class="sw" style="display:inline-block;width:9px;height:9px;background:' + run.color + '"></span> ' + run.run_id + "</td>" +
-      "<td>" + t + "</td><td>" + sp + "</td><td>" + cp + "</td><td>" + lap + "</td>" +
-      "<td>" + run.total_reward.toFixed(1) + "</td><td>" + run.path_distance.toFixed(0) + "</td><td>" + run.wall_hits + "</td></tr>";
-  });
-  readout.querySelector("tbody").innerHTML = body || '<tr><td colspan="8" class="hint">No runs visible</td></tr>';
-}
-
-function buildSectorTable() {
-  const ref = referenceId ? byId[referenceId] : null;
-  const sectorTable = document.getElementById("sectors");
-  const labels = (ref && ref.sectors.length ? ref.sectors : (RUNS.find(r => r.sectors.length) || { sectors: [] }).sectors).map(s => s.label);
-  let head = "<tr><th>run</th>";
-  labels.forEach(l => head += "<th>" + l + "</th>");
-  head += "<th>path</th><th>boosts</th><th>drift</th></tr>";
-  sectorTable.querySelector("thead").innerHTML = head;
-  let body = "";
-  RUNS.forEach(run => {
-    if (!run.sectors.length) return;
-    body += "<tr><td>" + run.run_id + (run.is_reference ? " <span class='badge ref'>ref</span>" : "") + "</td>";
-    run.sectors.forEach((s, i) => {
-      let cell = s.split_time.toFixed(3);
-      if (ref && ref.sectors[i] && !run.is_reference) {
-        const d = s.split_time - ref.sectors[i].split_time;
-        cell += ' <span class="' + (d <= 0 ? "pos" : "neg") + '">' + (d >= 0 ? "+" : "") + d.toFixed(3) + "</span>";
-      }
-      body += "<td>" + cell + "</td>";
-    });
-    body += "<td>" + run.path_distance.toFixed(0) + "</td><td>" + run.boosts_used + "</td><td>" + run.drift_time.toFixed(1) + "s</td></tr>";
-  });
-  sectorTable.querySelector("tbody").innerHTML = body || '<tr><td class="hint">No sector data</td></tr>';
-}
-
-// ---- telemetry: decision timelines ----------------------------------------
-const timelines = document.getElementById("timelines");
-const tlCanvas = {};
-function buildTimelines() {
-  timelines.innerHTML = "";
-  for (const k in tlCanvas) delete tlCanvas[k];
-  const ids = [];
-  if (state.focus) ids.push(state.focus);
-  if (referenceId && referenceId !== state.focus) ids.push(referenceId);
-  ids.forEach(id => {
-    const wrap = document.createElement("div");
-    wrap.innerHTML = '<div class="legend">' + id + ' &#183; ' + shorten(byId[id].model) +
-      ' &#8212; throttle(green) brake(red) steer(cyan) | drift/boost/wall strips</div>';
-    const c = document.createElement("canvas");
-    c.className = "timeline"; c.width = 900; c.height = 120;
-    wrap.appendChild(c); timelines.appendChild(wrap);
-    tlCanvas[id] = c;
-  });
-}
-function drawTimelines() {
-  Object.keys(tlCanvas).forEach(id => drawTimeline(id, byId[id], tlCanvas[id]));
-}
-function drawTimeline(id, run, c) {
-  const g = c.getContext("2d");
-  const W = c.width, H = c.height, n = run.frames.t.length;
-  g.clearRect(0, 0, W, H); g.fillStyle = "#14171c"; g.fillRect(0, 0, W, H);
-  if (!n) return;
-  const a = run.actions, an = a.throttle.length;
-  const xOf = i => (n > 1 ? (i / (n - 1)) * W : 0);
-  const top = 6, midH = 70;
-  // speed (faint)
-  const maxSpeed = Math.max(1, ...run.frames.speed);
-  g.strokeStyle = "#3a4350"; g.lineWidth = 1; g.beginPath();
-  for (let i = 0; i < n; i++) { const y = top + midH - (run.frames.speed[i] / maxSpeed) * midH; i ? g.lineTo(xOf(i), y) : g.moveTo(xOf(i), y); }
-  g.stroke();
-  // throttle / brake areas
-  area(g, an, i => a.throttle[i], xOf, top, midH, "#32d58366");
-  area(g, an, i => a.brake[i], xOf, top, midH, "#ff6b6b66");
-  // steer line (center +-)
-  g.strokeStyle = "#17bebb"; g.lineWidth = 1.5; g.beginPath();
-  for (let i = 0; i < an; i++) { const y = top + midH / 2 + a.steer[i] * (midH / 2); i ? g.lineTo(xOf(i), y) : g.moveTo(xOf(i), y); }
-  g.stroke();
-  // state strips
-  strip(g, n, i => run.frames.drift[i], xOf, top + midH + 6, "#4d96ff");
-  strip(g, n, i => run.frames.boost[i], xOf, top + midH + 16, "#32d583");
-  strip(g, n, i => run.frames.wall[i], xOf, top + midH + 26, "#ff453a");
-  // playhead
-  const fi = frameAt(run, state.axis);
-  if (fi != null) { const x = xOf(fi); g.strokeStyle = "#fff"; g.lineWidth = 1; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-}
-function area(g, n, fn, xOf, top, midH, color) {
-  g.fillStyle = color; g.beginPath(); g.moveTo(xOf(0), top + midH);
-  for (let i = 0; i < n; i++) g.lineTo(xOf(i), top + midH - fn(i) * midH);
-  g.lineTo(xOf(n - 1), top + midH); g.closePath(); g.fill();
-}
-function strip(g, n, fn, xOf, y, color) {
-  g.fillStyle = color;
-  for (let i = 0; i < n; i++) if (fn(i)) g.fillRect(xOf(i), y, Math.max(1, xOf(1) - xOf(0) + 1), 7);
-}
 
 // ---- transport -------------------------------------------------------------
 const scrub = document.getElementById("scrub");
@@ -1307,13 +1195,13 @@ function gotoStory(i) {
   state.focus = step.run_id;
   RUNS.forEach(r => { state.runUI[r.run_id].visible = (r.run_id === step.run_id || r.is_reference); });
   state.axis = 0; state.playing = true; playBtn.textContent = "⏸ Pause";
-  buildRunList(); buildTimelines(); syncScrub(); render();
+  buildRunList(); syncScrub(); render();
 }
 
 // ---- boot ------------------------------------------------------------------
 document.getElementById("subtitle").textContent =
   RUNS.length + " runs · track " + TRACK.track_id;
-buildRunList(); buildSectorTable(); buildTimelines();
+buildRunList();
 render();
 initStory();
 requestAnimationFrame(loop);

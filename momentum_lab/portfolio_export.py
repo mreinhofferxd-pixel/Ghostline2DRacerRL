@@ -16,12 +16,13 @@ Usage::
 
 Output tree (relative to ``--out``)::
 
+    README.md
     replay_viewer/index.html
     analysis/index.html
     analysis/*.svg
     data/track_01_easy_loop.json
     data/ghostline_ai_3_948.json
-    data/michi_dev_4_028.json
+    data/michi_dev_3_959.json
     data/manifest.json
     fixtures/straight_accel.json
     fixtures/brake_turn.json
@@ -30,7 +31,7 @@ Output tree (relative to ``--out``)::
     fixtures/checkpoint_finish.json
     fixtures/ai_record_replay.json
 
-The two benchmark rows (Ghostline AI run 881229 and Michi/dev run 750982) are
+The two benchmark rows (Ghostline AI run 881229 and Michi/dev DB run 23) are
 fixed values matching the challenge plan; the export verifies the located replay
 artifacts still match them so a future data change is caught rather than silently
 exported. The AI fixture is built from that same run 881229 replay artifact.
@@ -108,11 +109,11 @@ BENCHMARKS: tuple[Benchmark, ...] = (
     Benchmark(
         id="michi_dev",
         label="Michi/dev",
-        run_id="750982",
-        lap_time=4.028,
-        lap_ticks=242,
+        run_id="23",
+        lap_time=3.959,
+        lap_ticks=238,
         wall_hits=0,
-        data_filename="michi_dev_4_028.json",
+        data_filename="michi_dev_3_959.json",
     ),
 )
 
@@ -147,7 +148,7 @@ def replay_viewer_source(root: Path) -> Path:
         what="replay viewer",
         fix=(
             "Generate it first, e.g.:\n"
-            "    python -m momentum_lab.rl.visualizer --story progression --reference 750982"
+            "    python -m momentum_lab.rl.visualizer --story progression --reference 23"
         ),
     )
 
@@ -261,6 +262,43 @@ def _write_manifest(out: Path) -> list[Path]:
     return [path]
 
 
+def _write_readme(out: Path) -> list[Path]:
+    path = out / "README.md"
+    path.write_text(
+        """# Ghostline static assets
+
+This tree is **generated**, not hand-edited. It is the portfolio-ready export of
+the canonical Ghostline sim. The case study at `/work/ghostline` serves the
+replay viewer (`replay_viewer/index.html`) in a lazy iframe and reads the
+benchmark rows from `data/manifest.json`.
+
+```text
+replay_viewer/index.html   self-contained replay/story viewer (assets inlined)
+analysis/                  static analytics: index.html + per-run *.svg
+data/                      track + ghost replays + manifest.json (benchmark rows)
+fixtures/                  golden browser-sim fixtures generated from Python
+```
+
+## Refresh
+
+Re-run the export from the canonical sim repo (local-only,
+`C:\\Users\\reinh\\Documents\\2DRacerRL`) into this folder:
+
+```bash
+cd C:\\Users\\reinh\\Documents\\2DRacerRL
+python -m momentum_lab.portfolio_export --out "<portfolio>/public/ghostline" --clean
+```
+
+`--clean` wipes the folder first so stale runs do not linger. After refreshing,
+run `npm run build` and confirm the viewer still loads at
+`/ghostline/replay_viewer/index.html` with no console 404s. Do not edit files
+here by hand; change the sim and re-export.
+""",
+        encoding="utf-8",
+    )
+    return [path]
+
+
 def _write_fixtures(records: list[AnalyzedRun], out: Path) -> list[Path]:
     ai_benchmark = next(bench for bench in BENCHMARKS if bench.id == "ghostline_ai")
     run = _benchmark_run(records, ai_benchmark)
@@ -333,6 +371,7 @@ def export(out_dir: str | Path, *, root: str | Path | None = None, clean: bool =
     written += _copy_track(out)
     written += _copy_benchmarks(records, out)
     written += _write_manifest(out)
+    written += _write_readme(out)
     written += _write_fixtures(records, out)
 
     _audit_portable(out / "replay_viewer" / "index.html")

@@ -447,10 +447,10 @@ The interactive replay/story viewer is `python -m momentum_lab.rl.visualizer`
 Common forms:
 
 ```bash
-# Best-N runs + curated story, human run 750982 as the reference line:
-python -m momentum_lab.rl.visualizer --top 24 --story progression --reference 750982
+# Best-N runs + curated story, DER GOAT DB run 23 as the reference line:
+python -m momentum_lab.rl.visualizer --top 24 --story progression --reference 23
 # Just one family/run; select by model substring, run id, reward version, etc.:
-python -m momentum_lab.rl.visualizer --model b7_15 --reference 750982
+python -m momentum_lab.rl.visualizer --model b7_15 --reference 23
 ```
 
 When continuing the curriculum, two B7.6b options extend what the viewer covers:
@@ -690,7 +690,7 @@ no human seed). B7.7's acceptance bound (<=242 ticks, 0 walls) is met; the stric
 is a tie on the same step of the 1/60s lap-time staircase (see `BACKLOG.md` B9 on
 sub-tick timing); a strict beat needs a full frame (241).
 
-## 2026-06-21 (final): wall sensors reach 239 ticks and close time attack
+## 2026-06-21: wall sensors reach 239 ticks
 
 The last push added wall-distance sensors on top of the successful lookahead +
 gamma-0.997 setup. This was not a physics change and did not hand the policy an
@@ -715,3 +715,32 @@ selection, racing-efficiency shaping, lookahead observations, longer credit
 assignment, and finally wall sensors. Future work should be presentation,
 multi-track generalization, or a new research question rather than another
 same-recipe Track 1 continuation.
+
+## 2026-06-23 (final): B11 fan-out finds the 238-tick best
+
+After the 239-tick `b10_28` champion, B11 fanned out six keep-best continuations
+from the same wall-sensor, lookahead, gamma-0.997 setup. Five seeds repeated the
+239-tick line. Seed 129, saved as
+`b11_2_ppo_seed129_finetune_timeattack_v6_lookahead_wallsensors_g997_200k_keepbest.best`,
+found the current best:
+
+- Run id `881229`.
+- `3.9484684296035746` seconds, 238 control ticks, 0 wall hits.
+- Reward 1289.61, path distance 2206.7 px.
+
+The public comparison reference also changed. The old imported human row
+`750982` remains in the historical analytics table, but the current reference is
+DER GOAT, DB run `23`, displayed as 3.959s with 0 wall hits. Its exported replay
+keeps the two pre-start idle actions trimmed so the ghost starts on the lap clock.
+
+Portfolio generation now uses:
+
+```bash
+python -m momentum_lab.rl.analytics --root runs/rl --top 40 --group-by all --output runs/rl/analysis/ranked_runs.md --visual-dir runs/rl/analysis --visual-limit 40
+python -m momentum_lab.rl.visualizer --top 24 --story progression --reference 23
+python -m momentum_lab.portfolio_export --out "C:\Users\reinh\Documents\Personal Website\public\ghostline" --clean
+```
+
+Interpretation: Track 1 time attack is closed at 238 ticks / 3.948s. The story now
+shows the final stretch explicitly: `b10_28` at 3.965s, DER GOAT at 3.959s, then
+`b11_2` at 3.948s.
