@@ -20,7 +20,7 @@ Output tree (relative to ``--out``)::
     analysis/index.html
     analysis/*.svg
     data/track_01_easy_loop.json
-    data/ghostline_ai_3_965.json
+    data/ghostline_ai_3_948.json
     data/michi_dev_4_028.json
     data/manifest.json
     fixtures/straight_accel.json
@@ -30,10 +30,10 @@ Output tree (relative to ``--out``)::
     fixtures/checkpoint_finish.json
     fixtures/ai_record_replay.json
 
-The two benchmark rows (Ghostline AI run 970622 and Michi/dev run 750982) are
+The two benchmark rows (Ghostline AI run 881229 and Michi/dev run 750982) are
 fixed values matching the challenge plan; the export verifies the located replay
 artifacts still match them so a future data change is caught rather than silently
-exported. The AI fixture is built from that same run 970622 replay artifact.
+exported. The AI fixture is built from that same run 881229 replay artifact.
 """
 
 from __future__ import annotations
@@ -99,11 +99,11 @@ BENCHMARKS: tuple[Benchmark, ...] = (
     Benchmark(
         id="ghostline_ai",
         label="Ghostline AI",
-        run_id="970622",
-        lap_time=3.965,
-        lap_ticks=239,
+        run_id="881229",
+        lap_time=3.948,
+        lap_ticks=238,
         wall_hits=0,
-        data_filename="ghostline_ai_3_965.json",
+        data_filename="ghostline_ai_3_948.json",
     ),
     Benchmark(
         id="michi_dev",

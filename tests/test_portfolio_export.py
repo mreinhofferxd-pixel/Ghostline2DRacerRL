@@ -105,7 +105,7 @@ def test_manifest_matches_plan_shape(tmp_path, monkeypatch):
     assert manifest["timing_version"] == TIMING_VERSION
 
     expected = [
-        ("ghostline_ai", "Ghostline AI", "970622", 3.965, 239, 0),
+        ("ghostline_ai", "Ghostline AI", "881229", 3.948, 238, 0),
         ("michi_dev", "Michi/dev", "750982", 4.028, 242, 0),
     ]
     assert len(manifest["benchmarks"]) == len(expected)

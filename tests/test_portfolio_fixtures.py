@@ -27,9 +27,9 @@ def _fake_ai_replay() -> ReplayData:
         physics_fingerprint=physics_config_fingerprint(sim.cfg),
         seed=None,
         initial_state=InitialState.from_world(sim.world),
-        lap_time=3.965050363241023,
+        lap_time=3.9484684296035746,
         valid=True,
-        actions=tuple(Action(throttle=1.0) for _ in range(239)),
+        actions=tuple(Action(throttle=1.0) for _ in range(238)),
         frames=(),
     )
 
@@ -71,10 +71,10 @@ def test_ai_record_replay_fixture_locks_plan_outcome(monkeypatch):
     assert fixture["name"] == "ai_record_replay"
     assert fixture["physics_version"] == PHYSICS_VERSION
     assert fixture["track_id"] == pf.TRACK_ID
-    assert len(fixture["actions"]) == 239
+    assert len(fixture["actions"]) == 238
     assert fixture["expected"] == {
-        "lap_time": 3.965,
-        "lap_ticks": 239,
+        "lap_time": 3.948,
+        "lap_ticks": 238,
         "wall_hits": 0,
         "final_state_hash": "f2fd2ed736b7b796",
     }
